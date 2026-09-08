@@ -1,6 +1,7 @@
 """Static analytics page: one panel per dataset, each readable on its own terms.
 Data is embedded as JSON; the page is a small vanilla-JS app with Plotly for charts."""
 import json, datetime as dt
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from . import SITE
@@ -11,12 +12,12 @@ PLOTLY = "https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.1.0/plotly.min.js"
 
 SOURCES = [
     dict(id="openrouter", name="OpenRouter", what="Daily tokens for the top 50 models on the OpenRouter API marketplace, plus an 'other' bucket so the total is exact.",
-         skew="Under 1% of the market. Skews hobbyist, open-weight, coding agents, cheap models. Token counts use each provider's own tokenizer.", unit="tokens / week"),
+         skew="Small, non-representative marketplace sample; market coverage is not measured here. Skews hobbyist, open-weight, coding agents, cheap models. Token counts use each provider's own tokenizer.", unit="tokens / week"),
     dict(id="vercel", name="Vercel AI Gateway", what="Daily share of tokens, spend and requests by lab and by model through Vercel's gateway.",
          skew="Production web and B2B apps, closed-model heavy. Share only, no volumes, rolling 60-day window.", unit="% share / day"),
     dict(id="pricing", name="Pricing & quality", what="List prices on OpenRouter joined to Artificial Analysis quality indices.",
          skew="List prices, not negotiated. Indices are benchmark scores, not usage.", unit="$ per million tokens"),
-    dict(id="cloudflare", name="Cloudflare Radar", what="Daily popularity rank of generative-AI services from 1.1.1.1 DNS traffic.",
+    dict(id="cloudflare", name="Cloudflare Radar", what="Observed popularity rank of generative-AI services from 1.1.1.1 DNS traffic.",
          skew="Consumer and web traffic. Rank only. Undercounts services served from shared domains.", unit="rank"),
     dict(id="ramp", name="Ramp AI Index", what="Monthly share of US businesses on Ramp paying for AI, by vendor, sector and size, plus AI spend per employee and API spend share by model from Ramp's token spend product.",
          skew="Adoption, not volume. 70,000+ US firms on Ramp: VC-backed, tech-forward, mid-size. Model shares come from the subset connecting provider billing.", unit="% of businesses / $ per employee"),
@@ -56,7 +57,14 @@ def build(con):
                                    rel=(str(meta.release_date.get(m)) if pd.notna(meta.release_date.get(m)) else None),
                                    v=[float(x) for x in mod[m]]) for m in mod.columns},
                    asof=wk[-1])
-        ors["coverage"] = float(1 - w[w.permaslug == "other"].tokens.sum() / w.tokens.sum())
+        total = w.groupby("week").tokens.sum().reindex(weeks)
+        def bucket(mask):
+            return [float(x) for x in w[mask].groupby("week").tokens.sum().reindex(weeks, fill_value=0)]
+        ors["open"] = bucket(w.open_weights.eq(True))
+        ors["closed"] = bucket(w.open_weights.eq(False))
+        ors["free"] = bucket(w.is_free.eq(True))
+        ors["coverage"] = float(1 - w[(w.week == weeks[-1]) & (w.permaslug == "other")].tokens.sum() / total.iloc[-1])
+        ors["observed_through"] = str(con.execute("SELECT max(date) FROM or_daily").fetchone()[0])
     apps = M.or_apps(con)
     if not apps.empty:
         ors["apps"] = {f"{r['sort']}_{r.category}": [] for _, r in apps.iterrows()}
@@ -93,14 +101,15 @@ def build(con):
         if not w.empty:
             last = w[w.week == w.week.max()].groupby("model")["tokens"].sum().to_dict()
         ps["rows"] = [dict(model=r.model_id, name=r.name, lab=r.lab, open=_f(r.open_weights), idx=_f(r.intelligence_idx), coding=_f(r.coding_idx),
-                           agentic=_f(r.agentic_idx), pin=_f(r.p_in), pout=_f(r.p_out), pcache=_f(r.p_cache), blended=_f(r.blended),
+                           agentic=_f(r.agentic_idx), pin=_f(r.p_in), pout=_f(r.p_out), pcache=_f(r.p_cache),
                            created=(str(pd.Timestamp(r.created).date()) if pd.notna(r.created) else None),
                            or_tokens=float(last.get(canonical(r.model_id), 0))) for r in pr.itertuples()]
-        fr = M.frontier(pr)
-        ps["frontier"] = [dict(idx=_f(r.intelligence_idx), blended=_f(r.blended), model=r.model_id) for r in fr.itertuples()]
         pc = M.price_changes(con)
-        ps["changes"] = [dict(model=r.model_id, in_old=_f(r.in_old), in_new=_f(r.in_new), out_old=_f(r.out_old), out_new=_f(r.out_new)) for r in pc.itertuples()]
+        ps["changes"] = [dict(model=r.model_id, in_old=_f(r.in_old), in_new=_f(r.in_new), out_old=_f(r.out_old), out_new=_f(r.out_new), old_date=str(r.old_date), new_date=str(r.new_date)) for r in pc.itertuples()]
         ps["asof"] = str(con.execute("SELECT max(snapshot_date) FROM or_pricing").fetchone()[0])
+        hist = con.execute("SELECT snapshot_date, model_id, prompt_price*1e6 AS pin, completion_price*1e6 AS pout FROM or_pricing ORDER BY snapshot_date").df()
+        ps["history"] = {m: [dict(date=str(r.snapshot_date.date()), pin=_f(r.pin), pout=_f(r.pout)) for r in g.itertuples()] for m,g in hist.groupby("model_id")}
+        ps["quality_asof"] = str(con.execute("SELECT max(snapshot_date) FROM or_aa").fetchone()[0])
         ps["n_snapshots"] = int(con.execute("SELECT count(DISTINCT snapshot_date) FROM or_pricing").fetchone()[0])
     D["pricing"] = ps
 
@@ -151,21 +160,26 @@ def build(con):
         dsx["asof"] = str(dc.date.max())
     D["disclosures"] = dsx
 
-    # ---------- Cross-source board ----------
-    ag = M.agreement(con)
-    if not ag.empty:
-        cols = [c for c in ag.columns if c not in ("n_up", "n_sources")]
-        D["agreement"] = dict(labs=list(ag.index), cols=cols, z=[[_f(v) for v in row] for row in ag[cols].values])
 
     # ---------- status ----------
     st = M.source_status(con)
     D["runlog"] = [dict(source=r.source, last=str(r.last_run)[:16], rows=int(r.rows_added), note=str(r.last_note or "")) for r in st.itertuples()]
     for s in SOURCES:
         s2 = dict(s); s2["ok"] = bool(D.get(s["id"], {}).get("ok")); s2["asof"] = D.get(s["id"], {}).get("asof")
+        steps = {"openrouter": ("or_daily",), "vercel": ("vercel", "vercel_labs"),
+                 "pricing": ("or_models", "or_pricing"), "cloudflare": ("cf_rank",),
+                 "ramp": ("ramp", "ramp_monthly"), "disclosures": ("manual",)}[s["id"]]
+        attempts = [r for r in D["runlog"] if r["source"] in steps]
+        latest = max(attempts, key=lambda r: r["last"]) if attempts else None
+        s2["last_attempt"] = latest["last"] if latest else None
+        s2["collection_issue"] = latest["note"] if latest and ("FAILED" in latest["note"] or "skipped" in latest["note"].lower()) else None
         D["sources"][s["id"]] = s2
     D["sourceOrder"] = [s["id"] for s in SOURCES]
 
-    page = TEMPLATE.replace("{{DATA}}", json.dumps(D, separators=(",", ":"), default=lambda o: _f(o) if _f(o) is not o else str(o))).replace("{{PLOTLY}}", PLOTLY).replace("{{DATE}}", today)
+    template = TEMPLATE
+    for key, filename in (("TERMINAL_CORE", "terminal_core.js"), ("TERMINAL_JS", "terminal.js"), ("TERMINAL_CSS", "terminal.css")):
+        template = template.replace("{{" + key + "}}", Path(__file__).with_name(filename).read_text())
+    page = template.replace("{{DATA}}", json.dumps(D, separators=(",", ":"), allow_nan=False, default=lambda o: _f(o) if _f(o) is not o else str(o)).replace("<", "\\u003c")).replace("{{PLOTLY}}", PLOTLY).replace("{{DATE}}", today)
     SITE.mkdir(exist_ok=True)
     out = SITE / "index.html"
     out.write_text(page)
