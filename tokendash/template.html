@@ -2,7 +2,7 @@
 <title>Token Desk | Weekly Inference Markets</title><meta name="description" content="Weekly inference demand, model share, open-weight usage and actual token prices, with source coverage and bias.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-:root{color-scheme:light;--bg:#f4f6f8;--rail:#eef2f6;--panel:#ffffff;--panel2:#edf2f7;--line:#e0e6ed;--line2:#c6d0db;--ink:#172b40;--ink2:#405469;--mute:#617489;--acc:#5aa0f2;--ok:#3fb950;--warn:#d9a441;--bad:#e5626a;
+:root{color-scheme:dark;--bg:#17191c;--rail:#121416;--panel:#22262b;--panel2:#1d2126;--line:#373b40;--line2:#49515a;--ink:#e8e7e2;--ink2:#c7ccd1;--mute:#aab2ba;--acc:#5aa0f2;--ok:#3fb950;--warn:#d9a441;--bad:#e5626a;
  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink2);font:13px/1.45 var(--sans)}
 a{color:var(--acc)}button{font:inherit}
@@ -52,7 +52,7 @@ input.q{background:var(--bg);border:1px solid var(--line2);color:var(--ink);padd
 </style></head><body>
 <div class="app">
 <aside class="rail">
- <div class="brand"><b>Token Desk</b><span>LLM usage · weekly · {{DATE}}</span></div>
+ <div class="brand"><b>token<em> / </em>desk</b><span>LLM usage · weekly · {{DATE}}</span></div>
  <div id="nav"></div>
  <div class="foot">Source: OpenRouter (openrouter.ai/rankings), Vercel AI Gateway (CC BY 4.0), Artificial Analysis, Cloudflare Radar, Ramp.</div>
 </aside>
@@ -63,8 +63,8 @@ input.q{background:var(--bg);border:1px solid var(--line2);color:var(--ink);padd
 <script>
 const D={{DATA}};
 /* ---------- palette: colour follows the entity, never its rank ---------- */
-const LAB={Anthropic:"#3976b9",OpenAI:"#e8743b",Google:"#2fb383",DeepSeek:"#996713",xAI:"#d75d8e",Meta:"#388144",Qwen:"#7860ba",Mistral:"#ef6e6e",
- "Z.ai":"#5fc3c9",Moonshot:"#c9a06a",StepFun:"#8fb36a",MiniMax:"#b07fd0",NVIDIA:"#76b900",Xiaomi:"#f2a541",Tencent:"#3aa0d8",ByteDance:"#a67c52",Other:"#617489","Other (outside top 50)":"#4a525c"};
+const LAB={Anthropic:"#81add7",OpenAI:"#dba885",Google:"#8abfb0",DeepSeek:"#d9ba7c",xAI:"#cc9db5",Meta:"#85b99b",Qwen:"#b3a0da",Mistral:"#dba09a",
+ "Z.ai":"#88bfc0",Moonshot:"#c9a06a",StepFun:"#8fb36a",MiniMax:"#b07fd0",NVIDIA:"#a5bd77",Xiaomi:"#f2a541",Tencent:"#86b2cf",ByteDance:"#a67c52",Other:"#aab2ba","Other (outside top 50)":"#87919c"};
 const EXTRA=["#7aa2b8","#b89a7a","#8aa07a","#a08ab8","#b87a8a","#7ab8a0","#b8b07a","#7a88b8"];const extraIdx={};
 function col(name){if(LAB[name])return LAB[name];const lab=modelLab(name);if(lab&&LAB[lab])return LAB[lab];if(!(name in extraIdx))extraIdx[name]=Object.keys(extraIdx).length;return EXTRA[extraIdx[name]%EXTRA.length]}
 function modelLab(name){if(D.openrouter.models&&D.openrouter.models[name])return D.openrouter.models[name].lab;const m=/^(Claude|GPT|Gemini|Gemma|DeepSeek|Grok|Llama|Muse|Qwen|Mistral|GLM|Kimi|Step|MiniMax)/i.exec(name||"");
@@ -74,12 +74,12 @@ const fT=x=>x==null||isNaN(x)?"—":x>=1e15?(x/1e15).toFixed(2)+"Q":x>=1e12?(x/1
 const fP=(x,d=1)=>x==null||isNaN(x)?"—":(x*100).toFixed(d)+"%";const fPP=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(1)+"pp";const fS=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(1)+"%";
 const f$=x=>x==null||isNaN(x)?"—":"$"+(x<0.1?x.toFixed(3):x.toFixed(2));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function spark(v,w=84,h=20){if(!v||!v.length)return"";const vals=v.filter(x=>typeof x==='number'&&Number.isFinite(x));if(!vals.length)return"";const lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo;let path='',gap=true;v.forEach((x,i)=>{if(x==null||!Number.isFinite(x)){gap=true;return}const px=v.length===1?w/2:i*w/(v.length-1),py=span?h-2-(x-lo)/span*(h-4):h/2;path+=(gap?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' ';gap=false});return `<svg class="spark" width="${w}" height="${h}" role="img" aria-label="Recent trend"><path d="${path}" fill="none" stroke="#357a82" stroke-width="1.4"/></svg>`}
+function spark(v,w=84,h=20){if(!v||!v.length)return"";const vals=v.filter(x=>typeof x==='number'&&Number.isFinite(x));if(!vals.length)return"";const lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo;let path='',gap=true;v.forEach((x,i)=>{if(x==null||!Number.isFinite(x)){gap=true;return}const px=v.length===1?w/2:i*w/(v.length-1),py=span?h-2-(x-lo)/span*(h-4):h/2;path+=(gap?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' ';gap=false});return `<svg class="spark" width="${w}" height="${h}" role="img" aria-label="Recent trend"><path d="${path}" fill="none" stroke="#aebdc8" stroke-width="1.4"/></svg>`}
 /* ---------- plotly base ---------- */
 const CFG={displayModeBar:false,responsive:true};
-function lay(o={}){const b={paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"#ffffff",font:{family:"IBM Plex Sans,system-ui,sans-serif",size:11,color:"#405469"},margin:{l:48,r:16,t:10,b:36},hovermode:"x unified",showlegend:false,
- xaxis:{gridcolor:"#e0e6ed",zeroline:false,linecolor:"#c6d0db",tickfont:{color:"#617489"}},yaxis:{gridcolor:"#e0e6ed",zeroline:false,linecolor:"#c6d0db",tickfont:{color:"#617489",family:"IBM Plex Mono"}},hoverlabel:{bgcolor:"#edf2f7",bordercolor:"#c6d0db",font:{color:"#172b40",size:11,family:"IBM Plex Mono"}}};
- b.plot_bgcolor="#ffffff";b.xaxis.gridcolor="#dde5ed";b.yaxis.gridcolor="#dde5ed";
+function lay(o={}){const b={paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"#22262b",font:{family:"IBM Plex Sans,system-ui,sans-serif",size:11,color:"#c7ccd1"},margin:{l:48,r:16,t:10,b:36},hovermode:"x unified",showlegend:false,
+ xaxis:{gridcolor:"#373b40",zeroline:false,linecolor:"#49515a",tickfont:{color:"#aab2ba"}},yaxis:{gridcolor:"#373b40",zeroline:false,linecolor:"#49515a",tickfont:{color:"#aab2ba",family:"IBM Plex Mono"}},hoverlabel:{bgcolor:"#1d2126",bordercolor:"#49515a",font:{color:"#e8e7e2",size:11,family:"IBM Plex Mono"}}};
+ b.plot_bgcolor="#22262b";b.xaxis.gridcolor="#373b40";b.yaxis.gridcolor="#373b40";
  for(const k in o){if(o[k]&&typeof o[k]==="object"&&b[k]&&typeof b[k]==="object")Object.assign(b[k],o[k]);else b[k]=o[k]}return b}
 /* ---------- generic widgets ---------- */
 function seg(id,opts,val,on){return`<span class="seg" id="${id}">${opts.map(o=>`<button data-v="${o[0]}" class="${o[0]===val?"on":""}">${o[1]}</button>`).join("")}</span>`}
@@ -205,7 +205,7 @@ BUILD.ramp=function(el){
  <div class="block"><div class="bh"><h2>Model share, latest month</h2></div><div id="rp-mtable"></div></div>`:""}
  ${r.spend.median_pepm?`<div class="block"><div class="bh"><h2>AI spend per employee per month</h2><span class="sp"></span><span class="lbl">log scale</span></div><div class="plot sm" id="rp-splot"></div></div>`:""}`;
  function plot(){const S=r[st.cut];const keys=Object.keys(S).filter(k=>st.cut!=="vendors"||true).sort((a,b)=>(g(S[b],n)||0)-(g(S[a],n)||0));
-  const tr=keys.map(k=>({x:r.months,y:S[k],name:k,mode:"lines",line:{width:k==="all"?2.5:2,color:k==="all"?"#172b40":k==="census"?"#617489":col(k),dash:k==="census"?"dot":"solid"},connectgaps:false,hovertemplate:"%{y:.1f}%<extra>"+esc(k==="all"?"Ramp overall":k==="census"?"Census estimate":k)+"</extra>"}));
+  const tr=keys.map(k=>({x:r.months,y:S[k],name:k,mode:"lines",line:{width:k==="all"?2.5:2,color:k==="all"?"#e8e7e2":k==="census"?"#aab2ba":col(k),dash:k==="census"?"dot":"solid"},connectgaps:false,hovertemplate:"%{y:.1f}%<extra>"+esc(k==="all"?"Ramp overall":k==="census"?"Census estimate":k)+"</extra>"}));
   Plotly.react("rp-plot",tr,lay({yaxis:{ticksuffix:"%",rangemode:"tozero"},showlegend:st.cut!=="vendors"||true,legend:{orientation:"h",y:-0.16,font:{size:10}},margin:{b:70}}),CFG)}
  function tbl(){const S=r[st.cut];document.getElementById("rp-tl").textContent={vendors:"vendor",sectors:"sector",sizes:"business size"}[st.cut];
   table(document.getElementById("rp-table"),[{k:"e",h:{vendors:"Vendor",sectors:"Sector",sizes:"Size"}[st.cut],f:v=>v==="all"?"Ramp overall":v==="census"?"Census estimate":labChip(v)},{k:"v",h:"Adoption",n:1,f:v=>v==null?"—":v.toFixed(1)+"%"},{k:"m1",h:"Monthly change",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m3",h:"3-month change",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m12",h:"Yearly change",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"sp",h:"12 months",f:v=>spark(v)}],Object.keys(S).map(k=>({e:k,v:g(S[k],n),m1:d(S[k],1),m3:d(S[k],3),m12:d(S[k],12),sp:S[k].slice(-12)})),"v")}
@@ -219,7 +219,7 @@ BUILD.ramp=function(el){
  bindSeg("rp-c",x=>{st.cut=x;plot();tbl()});
  if(r.model_months?.length){bindSeg("rp-m",x=>{st.mview=x;mplot()});mplot();mtbl()}
  if(r.spend.median_pepm){const S=r.spend;const L={median_pepm:"median",p90_pepm:"p90",p99_pepm:"p99",top_10_percent_median_pepm:"top 10% median",top_1_percent_median_pepm:"top 1% median"};
-  Plotly.newPlot("rp-splot",Object.entries(L).filter(([k])=>S[k]).map(([k,name],i)=>({x:r.months,y:S[k],name,mode:"lines",line:{width:2,color:["#172b40","#3976b9","#7860ba","#996713","#e8743b"][i]},connectgaps:false,hovertemplate:"$%{y:,.0f}<extra>"+name+"</extra>"})),lay({yaxis:{type:"log",tickprefix:"$",tickformat:",.0f"},showlegend:true,legend:{orientation:"h",y:-0.2,font:{size:10}},margin:{b:60}}),CFG)}
+  Plotly.newPlot("rp-splot",Object.entries(L).filter(([k])=>S[k]).map(([k,name],i)=>({x:r.months,y:S[k],name,mode:"lines",line:{width:2,color:["#e8e7e2","#81add7","#b3a0da","#d9ba7c","#dba885"][i]},connectgaps:false,hovertemplate:"$%{y:,.0f}<extra>"+name+"</extra>"})),lay({yaxis:{type:"log",tickprefix:"$",tickformat:",.0f"},showlegend:true,legend:{orientation:"h",y:-0.2,font:{size:10}},margin:{b:60}}),CFG)}
  plot();tbl()};
 /* ================= DISCLOSURES ================= */
 BUILD.disclosures=function(el){
