@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {"name": "preview-scratch", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8765", "-d", "/private/tmp/claude-502/-Users-Nipun-Downloads-token-dash/334276a3-c48a-4586-92c1-6e39947b7cff/scratchpad"], "port": 8765},
+    {"name": "site", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8766", "-d", "site"], "port": 8766}
+  ]
+}
