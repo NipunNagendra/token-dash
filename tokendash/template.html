@@ -2,7 +2,7 @@
 <title>Token Desk | Weekly Inference Markets</title><meta name="description" content="Weekly inference demand, model share, open-weight usage and actual token prices, with source coverage and bias.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-:root{color-scheme:dark;--bg:#0f1114;--rail:#0b0d10;--panel:#161a1f;--panel2:#1c2127;--line:#262c34;--line2:#323a44;--ink:#eef1f4;--ink2:#b3bcc7;--mute:#76808c;--acc:#5aa0f2;--ok:#3fb950;--warn:#d9a441;--bad:#e5626a;
+:root{color-scheme:light;--bg:#f4f6f8;--rail:#eef2f6;--panel:#ffffff;--panel2:#edf2f7;--line:#e0e6ed;--line2:#c6d0db;--ink:#172b40;--ink2:#405469;--mute:#617489;--acc:#5aa0f2;--ok:#3fb950;--warn:#d9a441;--bad:#e5626a;
  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink2);font:13px/1.45 var(--sans)}
 a{color:var(--acc)}button{font:inherit}
@@ -63,8 +63,8 @@ input.q{background:var(--bg);border:1px solid var(--line2);color:var(--ink);padd
 <script>
 const D={{DATA}};
 /* ---------- palette: colour follows the entity, never its rank ---------- */
-const LAB={Anthropic:"#5aa0f2",OpenAI:"#e8743b",Google:"#2fb383",DeepSeek:"#d9a441",xAI:"#d75d8e",Meta:"#4caf50",Qwen:"#9d8df1",Mistral:"#ef6e6e",
- "Z.ai":"#5fc3c9",Moonshot:"#c9a06a",StepFun:"#8fb36a",MiniMax:"#b07fd0",NVIDIA:"#76b900",Xiaomi:"#f2a541",Tencent:"#3aa0d8",ByteDance:"#a67c52",Other:"#76808c","Other (outside top 50)":"#4a525c"};
+const LAB={Anthropic:"#3976b9",OpenAI:"#e8743b",Google:"#2fb383",DeepSeek:"#996713",xAI:"#d75d8e",Meta:"#388144",Qwen:"#7860ba",Mistral:"#ef6e6e",
+ "Z.ai":"#5fc3c9",Moonshot:"#c9a06a",StepFun:"#8fb36a",MiniMax:"#b07fd0",NVIDIA:"#76b900",Xiaomi:"#f2a541",Tencent:"#3aa0d8",ByteDance:"#a67c52",Other:"#617489","Other (outside top 50)":"#4a525c"};
 const EXTRA=["#7aa2b8","#b89a7a","#8aa07a","#a08ab8","#b87a8a","#7ab8a0","#b8b07a","#7a88b8"];const extraIdx={};
 function col(name){if(LAB[name])return LAB[name];const lab=modelLab(name);if(lab&&LAB[lab])return LAB[lab];if(!(name in extraIdx))extraIdx[name]=Object.keys(extraIdx).length;return EXTRA[extraIdx[name]%EXTRA.length]}
 function modelLab(name){if(D.openrouter.models&&D.openrouter.models[name])return D.openrouter.models[name].lab;const m=/^(Claude|GPT|Gemini|Gemma|DeepSeek|Grok|Llama|Muse|Qwen|Mistral|GLM|Kimi|Step|MiniMax)/i.exec(name||"");
@@ -74,12 +74,12 @@ const fT=x=>x==null||isNaN(x)?"—":x>=1e15?(x/1e15).toFixed(2)+"Q":x>=1e12?(x/1
 const fP=(x,d=1)=>x==null||isNaN(x)?"—":(x*100).toFixed(d)+"%";const fPP=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(1)+"pp";const fS=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(1)+"%";
 const f$=x=>x==null||isNaN(x)?"—":"$"+(x<0.1?x.toFixed(3):x.toFixed(2));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function spark(v,w=84,h=20){if(!v||!v.length)return"";const vals=v.filter(x=>typeof x==='number'&&Number.isFinite(x));if(!vals.length)return"";const lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo;let path='',gap=true;v.forEach((x,i)=>{if(x==null||!Number.isFinite(x)){gap=true;return}const px=v.length===1?w/2:i*w/(v.length-1),py=span?h-2-(x-lo)/span*(h-4):h/2;path+=(gap?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' ';gap=false});return `<svg class="spark" width="${w}" height="${h}" role="img" aria-label="Recent trend"><path d="${path}" fill="none" stroke="#91b6bd" stroke-width="1.4"/></svg>`}
+function spark(v,w=84,h=20){if(!v||!v.length)return"";const vals=v.filter(x=>typeof x==='number'&&Number.isFinite(x));if(!vals.length)return"";const lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo;let path='',gap=true;v.forEach((x,i)=>{if(x==null||!Number.isFinite(x)){gap=true;return}const px=v.length===1?w/2:i*w/(v.length-1),py=span?h-2-(x-lo)/span*(h-4):h/2;path+=(gap?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' ';gap=false});return `<svg class="spark" width="${w}" height="${h}" role="img" aria-label="Recent trend"><path d="${path}" fill="none" stroke="#357a82" stroke-width="1.4"/></svg>`}
 /* ---------- plotly base ---------- */
 const CFG={displayModeBar:false,responsive:true};
-function lay(o={}){const b={paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"#161a1f",font:{family:"IBM Plex Sans,system-ui,sans-serif",size:11,color:"#b3bcc7"},margin:{l:48,r:16,t:10,b:36},hovermode:"x unified",showlegend:false,
- xaxis:{gridcolor:"#262c34",zeroline:false,linecolor:"#323a44",tickfont:{color:"#76808c"}},yaxis:{gridcolor:"#262c34",zeroline:false,linecolor:"#323a44",tickfont:{color:"#76808c",family:"IBM Plex Mono"}},hoverlabel:{bgcolor:"#1c2127",bordercolor:"#323a44",font:{color:"#eef1f4",size:11,family:"IBM Plex Mono"}}};
- b.plot_bgcolor="#121820";b.xaxis.gridcolor="#26323e";b.yaxis.gridcolor="#26323e";
+function lay(o={}){const b={paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"#ffffff",font:{family:"IBM Plex Sans,system-ui,sans-serif",size:11,color:"#405469"},margin:{l:48,r:16,t:10,b:36},hovermode:"x unified",showlegend:false,
+ xaxis:{gridcolor:"#e0e6ed",zeroline:false,linecolor:"#c6d0db",tickfont:{color:"#617489"}},yaxis:{gridcolor:"#e0e6ed",zeroline:false,linecolor:"#c6d0db",tickfont:{color:"#617489",family:"IBM Plex Mono"}},hoverlabel:{bgcolor:"#edf2f7",bordercolor:"#c6d0db",font:{color:"#172b40",size:11,family:"IBM Plex Mono"}}};
+ b.plot_bgcolor="#ffffff";b.xaxis.gridcolor="#dde5ed";b.yaxis.gridcolor="#dde5ed";
  for(const k in o){if(o[k]&&typeof o[k]==="object"&&b[k]&&typeof b[k]==="object")Object.assign(b[k],o[k]);else b[k]=o[k]}return b}
 /* ---------- generic widgets ---------- */
 function seg(id,opts,val,on){return`<span class="seg" id="${id}">${opts.map(o=>`<button data-v="${o[0]}" class="${o[0]===val?"on":""}">${o[1]}</button>`).join("")}</span>`}
@@ -109,7 +109,7 @@ function show(id){document.querySelectorAll(".nav").forEach(n=>n.classList.toggl
  requestAnimationFrame(()=>pane.querySelectorAll(".plot").forEach(p=>{if(typeof Plotly!=="undefined"&&p._fullLayout)Plotly.Plots.resize(p)}))
  try{localStorage.setItem("tm_panel",id)}catch(e){}location.hash=id}
 nav.querySelectorAll(".nav").forEach(n=>n.onclick=()=>show(n.dataset.p));
-function head(src,extra=""){return`<div class="ph"><div><h1>${esc(src.name)}</h1><p>${esc(src.what)}</p><div class="skew">Skew: ${esc(src.skew)}</div></div><div><span class="chip ${src.ok?"":"miss"}"><span class="dot"></span>${src.ok?"as of "+src.asof:"no data yet"}</span> <span class="chip">${esc(src.unit)}</span>${extra}</div></div>`}
+function head(src,extra=""){return`<div class="ph"><div><h1>${esc(src.name)}</h1><p>${esc(src.what)}</p><div class="skew">Coverage & bias: ${esc(src.skew)}</div></div><div><span class="chip ${src.ok?"":"miss"}"><span class="dot"></span>${src.ok?"as of "+src.asof:"no data yet"}</span> <span class="chip">${esc(src.unit)}</span>${extra}</div></div>`}
 const BUILD={};
 /* ================= OVERVIEW ================= */
 /* ================= OPENROUTER ================= */
@@ -139,7 +139,7 @@ BUILD.openrouter=function(el){
  function tbl(){document.getElementById("or-tl").textContent=st.group;const rows=ents().map(e=>{const v=series(e);const m=st.group==="model"?o.models[e]:null;return{e,lab:m?m.lab:e,open:m?m.open:null,rel:m?m.rel:null,tok:v[n],d4:v[a4]?v[n]/v[a4]-1:null,share:v[n]/tot[n],dsh:v[n]/tot[n]-v[a4]/tot[a4],neu:v.slice(0,a4+1).every(x=>!x)&&v[n]>0,sp:v.slice(-13)}});
   const cols=[{k:"e",h:st.group==="lab"?"Lab":"Model",f:(v,r)=>(r.neu?`<span class="chip" style="padding:0 5px;font-size:10px;color:var(--acc)">new</span> `:"")+labChip(v)}];
   if(st.group==="model")cols.push({k:"lab",h:"Lab"},{k:"open",h:"Weights",f:v=>v==null?"?":v?"open":"closed"},{k:"rel",h:"Released",f:v=>v||"—"});
-  cols.push({k:"tok",h:"Tokens / wk",n:1,f:fT},{k:"d4",h:"vs 4 wks ago",n:1,f:fS,cls:v=>v>0?"up":v<0?"dn":""},{k:"share",h:"Share",n:1,f:fP},{k:"dsh",h:"Share Δ 4w",n:1,f:fPP,cls:v=>v>0?"up":v<0?"dn":""},{k:"sp",h:"13 weeks",f:v=>spark(v)});
+  cols.push({k:"tok",h:"Tokens / wk",n:1,f:fT},{k:"d4",h:"Growth vs 4 weeks ago",n:1,f:fS,cls:v=>v>0?"up":v<0?"dn":""},{k:"share",h:"Share",n:1,f:fP},{k:"dsh",h:"Share change · 4 weeks",n:1,f:fPP,cls:v=>v>0?"up":v<0?"dn":""},{k:"sp",h:"13 weeks",f:v=>spark(v)});
   table(document.getElementById("or-table"),cols,rows,"tok")}
  function apps(k){const rows=o.apps[k]||[];const t=rows.reduce((s,r)=>s+r.tokens,0);table(document.getElementById("or-apps"),[{k:"rank",h:"#",n:1},{k:"app",h:"App"},{k:"tokens",h:"Tokens (window)",n:1,f:fT},{k:"share",h:"Of listed",n:1,f:fP},{k:"requests",h:"Requests",n:1,f:v=>v?v.toLocaleString():"—"}],rows.map(r=>({...r,share:r.tokens/t})),"rank",false)}
  bindSeg("or-g",v=>{st.group=v;st.sel=new Set(ents().slice(0,8));chips();plot();tbl()});bindSeg("or-v",v=>{st.view=v;plot()});bindSeg("or-s",v=>{st.stack=v;plot()});bindSeg("or-w",v=>{st.win=v;plot()});
@@ -205,21 +205,21 @@ BUILD.ramp=function(el){
  <div class="block"><div class="bh"><h2>Model share, latest month</h2></div><div id="rp-mtable"></div></div>`:""}
  ${r.spend.median_pepm?`<div class="block"><div class="bh"><h2>AI spend per employee per month</h2><span class="sp"></span><span class="lbl">log scale</span></div><div class="plot sm" id="rp-splot"></div></div>`:""}`;
  function plot(){const S=r[st.cut];const keys=Object.keys(S).filter(k=>st.cut!=="vendors"||true).sort((a,b)=>(g(S[b],n)||0)-(g(S[a],n)||0));
-  const tr=keys.map(k=>({x:r.months,y:S[k],name:k,mode:"lines",line:{width:k==="all"?2.5:2,color:k==="all"?"#eef1f4":k==="census"?"#76808c":col(k),dash:k==="census"?"dot":"solid"},connectgaps:false,hovertemplate:"%{y:.1f}%<extra>"+esc(k==="all"?"Ramp overall":k==="census"?"Census estimate":k)+"</extra>"}));
+  const tr=keys.map(k=>({x:r.months,y:S[k],name:k,mode:"lines",line:{width:k==="all"?2.5:2,color:k==="all"?"#172b40":k==="census"?"#617489":col(k),dash:k==="census"?"dot":"solid"},connectgaps:false,hovertemplate:"%{y:.1f}%<extra>"+esc(k==="all"?"Ramp overall":k==="census"?"Census estimate":k)+"</extra>"}));
   Plotly.react("rp-plot",tr,lay({yaxis:{ticksuffix:"%",rangemode:"tozero"},showlegend:st.cut!=="vendors"||true,legend:{orientation:"h",y:-0.16,font:{size:10}},margin:{b:70}}),CFG)}
  function tbl(){const S=r[st.cut];document.getElementById("rp-tl").textContent={vendors:"vendor",sectors:"sector",sizes:"business size"}[st.cut];
-  table(document.getElementById("rp-table"),[{k:"e",h:{vendors:"Vendor",sectors:"Sector",sizes:"Size"}[st.cut],f:v=>v==="all"?"Ramp overall":v==="census"?"Census estimate":labChip(v)},{k:"v",h:"Adoption",n:1,f:v=>v==null?"—":v.toFixed(1)+"%"},{k:"m1",h:"m/m",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m3",h:"3m",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m12",h:"y/y",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"sp",h:"12 months",f:v=>spark(v)}],Object.keys(S).map(k=>({e:k,v:g(S[k],n),m1:d(S[k],1),m3:d(S[k],3),m12:d(S[k],12),sp:S[k].slice(-12)})),"v")}
+  table(document.getElementById("rp-table"),[{k:"e",h:{vendors:"Vendor",sectors:"Sector",sizes:"Size"}[st.cut],f:v=>v==="all"?"Ramp overall":v==="census"?"Census estimate":labChip(v)},{k:"v",h:"Adoption",n:1,f:v=>v==null?"—":v.toFixed(1)+"%"},{k:"m1",h:"Monthly change",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m3",h:"3-month change",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m12",h:"Yearly change",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"sp",h:"12 months",f:v=>spark(v)}],Object.keys(S).map(k=>({e:k,v:g(S[k],n),m1:d(S[k],1),m3:d(S[k],3),m12:d(S[k],12),sp:S[k].slice(-12)})),"v")}
  function mplot(){const mm=r.model_months,k=mm.length-1;let tr;
   if(st.mview==="provider"){const P={};for(const [lab,m] of Object.entries(r.models)){P[m.provider]=P[m.provider]||mm.map(()=>0);m.v.forEach((x,i)=>{if(x!=null)P[m.provider][i]+=x})}
    tr=Object.entries(P).sort((a,b)=>b[1][k]-a[1][k]).map(([p,v])=>({x:mm,y:v,name:p,stackgroup:"a",mode:"lines",line:{width:.6,color:col(p)},fillcolor:col(p),hovertemplate:"%{y:.1%}<extra>"+esc(p)+"</extra>"}))}
   else{tr=Object.entries(r.models).sort((a,b)=>(b[1].v[k]||0)-(a[1].v[k]||0)).slice(0,14).map(([lab,m],i)=>({x:mm,y:m.v.map(x=>x||0),name:lab,stackgroup:"a",mode:"lines",line:{width:.6,color:col(m.provider)},fillcolor:col(m.provider),opacity:1-(i%5)*.12,hovertemplate:"%{y:.1%}<extra>"+esc(m.provider+" "+lab)+"</extra>"}))}
   Plotly.react("rp-mplot",tr,lay({yaxis:{tickformat:".0%",range:[0,1]},showlegend:true,legend:{orientation:"h",y:-0.16,font:{size:10}},margin:{b:70}}),CFG)}
  function mtbl(){const k=r.model_months.length-1;const rows=Object.entries(r.models).map(([lab,m])=>({lab,provider:m.provider,v:m.v[k],m1:m.v[k]!=null&&m.v[k-1]!=null?m.v[k]-m.v[k-1]:null,m3:m.v[k]!=null&&m.v[k-3]!=null?m.v[k]-m.v[k-3]:null,sp:m.v.slice(-12)})).filter(x=>x.v);
-  table(document.getElementById("rp-mtable"),[{k:"lab",h:"Model"},{k:"provider",h:"Provider",f:labChip},{k:"v",h:"Share of API spend",n:1,f:fP},{k:"m1",h:"m/m",n:1,f:fPP,cls:x=>x>0?"up":x<0?"dn":""},{k:"m3",h:"3m",n:1,f:fPP,cls:x=>x>0?"up":x<0?"dn":""},{k:"sp",h:"12 months",f:v=>spark(v)}],rows,"v")}
+  table(document.getElementById("rp-mtable"),[{k:"lab",h:"Model"},{k:"provider",h:"Provider",f:labChip},{k:"v",h:"Share of API spend",n:1,f:fP},{k:"m1",h:"Monthly change",n:1,f:fPP,cls:x=>x>0?"up":x<0?"dn":""},{k:"m3",h:"3-month change",n:1,f:fPP,cls:x=>x>0?"up":x<0?"dn":""},{k:"sp",h:"12 months",f:v=>spark(v)}],rows,"v")}
  bindSeg("rp-c",x=>{st.cut=x;plot();tbl()});
  if(r.model_months?.length){bindSeg("rp-m",x=>{st.mview=x;mplot()});mplot();mtbl()}
  if(r.spend.median_pepm){const S=r.spend;const L={median_pepm:"median",p90_pepm:"p90",p99_pepm:"p99",top_10_percent_median_pepm:"top 10% median",top_1_percent_median_pepm:"top 1% median"};
-  Plotly.newPlot("rp-splot",Object.entries(L).filter(([k])=>S[k]).map(([k,name],i)=>({x:r.months,y:S[k],name,mode:"lines",line:{width:2,color:["#eef1f4","#5aa0f2","#9d8df1","#d9a441","#e8743b"][i]},connectgaps:false,hovertemplate:"$%{y:,.0f}<extra>"+name+"</extra>"})),lay({yaxis:{type:"log",tickprefix:"$",tickformat:",.0f"},showlegend:true,legend:{orientation:"h",y:-0.2,font:{size:10}},margin:{b:60}}),CFG)}
+  Plotly.newPlot("rp-splot",Object.entries(L).filter(([k])=>S[k]).map(([k,name],i)=>({x:r.months,y:S[k],name,mode:"lines",line:{width:2,color:["#172b40","#3976b9","#7860ba","#996713","#e8743b"][i]},connectgaps:false,hovertemplate:"$%{y:,.0f}<extra>"+name+"</extra>"})),lay({yaxis:{type:"log",tickprefix:"$",tickformat:",.0f"},showlegend:true,legend:{orientation:"h",y:-0.2,font:{size:10}},margin:{b:60}}),CFG)}
  plot();tbl()};
 /* ================= DISCLOSURES ================= */
 BUILD.disclosures=function(el){
