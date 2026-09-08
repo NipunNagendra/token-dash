@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Token Monitor</title>
+<title>Token Desk | Weekly Inference Markets</title><meta name="description" content="Weekly inference demand, model share, open-weight usage and actual token prices, with source coverage and bias.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{color-scheme:dark;--bg:#0f1114;--rail:#0b0d10;--panel:#161a1f;--panel2:#1c2127;--line:#262c34;--line2:#323a44;--ink:#eef1f4;--ink2:#b3bcc7;--mute:#76808c;--acc:#5aa0f2;--ok:#3fb950;--warn:#d9a441;--bad:#e5626a;
@@ -48,16 +48,18 @@ input.q{background:var(--bg);border:1px solid var(--line2);color:var(--ink);padd
 .hm{display:none}
 @media (max-width:800px){.app{grid-template-columns:1fr}.rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap}.rail .foot,.brand span{display:none}.nav .t small{display:none}}
 @media (prefers-reduced-motion:no-preference){.nav,.ent{transition:background .12s}}
+{{TERMINAL_CSS}}
 </style></head><body>
 <div class="app">
 <aside class="rail">
- <div class="brand"><b>Token Monitor</b><span>LLM usage · weekly · {{DATE}}</span></div>
+ <div class="brand"><b>Token Desk</b><span>LLM usage · weekly · {{DATE}}</span></div>
  <div id="nav"></div>
  <div class="foot">Source: OpenRouter (openrouter.ai/rankings), Vercel AI Gateway (CC BY 4.0), Artificial Analysis, Cloudflare Radar, Ramp.</div>
 </aside>
 <main class="main" id="main"></main>
 </div>
 <script src="{{PLOTLY}}"></script>
+<script data-offline-fallback>if(typeof Plotly==='undefined'){const unavailable=id=>{const el=document.getElementById(id);if(el)el.innerHTML='<div class="empty"><b>Chart unavailable offline</b>Tables and readings remain available. Reconnect to load the chart library.</div>'};globalThis.Plotly={react:unavailable,newPlot:unavailable,Plots:{resize(){}}}}</script>
 <script>
 const D={{DATA}};
 /* ---------- palette: colour follows the entity, never its rank ---------- */
@@ -69,14 +71,15 @@ function modelLab(name){if(D.openrouter.models&&D.openrouter.models[name])return
  const map={claude:"Anthropic",gpt:"OpenAI",gemini:"Google",gemma:"Google",deepseek:"DeepSeek",grok:"xAI",llama:"Meta",muse:"Meta",qwen:"Qwen",mistral:"Mistral",glm:"Z.ai",kimi:"Moonshot",step:"StepFun",minimax:"MiniMax"};return m?map[m[1].toLowerCase()]:null}
 /* ---------- formatting ---------- */
 const fT=x=>x==null||isNaN(x)?"—":x>=1e15?(x/1e15).toFixed(2)+"Q":x>=1e12?(x/1e12).toFixed(2)+"T":x>=1e9?(x/1e9).toFixed(1)+"B":x>=1e6?(x/1e6).toFixed(0)+"M":Math.round(x).toLocaleString();
-const fP=(x,d=1)=>x==null||isNaN(x)?"—":(x*100).toFixed(d)+"%";const fPP=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(1)+"pp";const fS=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(0)+"%";
+const fP=(x,d=1)=>x==null||isNaN(x)?"—":(x*100).toFixed(d)+"%";const fPP=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(1)+"pp";const fS=x=>x==null||isNaN(x)?"—":(x>0?"+":"")+(x*100).toFixed(1)+"%";
 const f$=x=>x==null||isNaN(x)?"—":"$"+(x<0.1?x.toFixed(3):x.toFixed(2));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function spark(v,w=84,h=20){if(!v||!v.length)return"";const m=Math.max(...v.filter(x=>x!=null));if(!m)return"";const n=v.length;const pts=v.map((x,i)=>x==null?null:`${(i*w/(n-1)).toFixed(1)},${(h-1-(x/m)*(h-2)).toFixed(1)}`).filter(Boolean).join(" ");return`<svg class="spark" width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="#b3bcc7" stroke-width="1.4"/></svg>`}
+function spark(v,w=84,h=20){if(!v||!v.length)return"";const vals=v.filter(x=>typeof x==='number'&&Number.isFinite(x));if(!vals.length)return"";const lo=Math.min(...vals),hi=Math.max(...vals),span=hi-lo;let path='',gap=true;v.forEach((x,i)=>{if(x==null||!Number.isFinite(x)){gap=true;return}const px=v.length===1?w/2:i*w/(v.length-1),py=span?h-2-(x-lo)/span*(h-4):h/2;path+=(gap?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' ';gap=false});return `<svg class="spark" width="${w}" height="${h}" role="img" aria-label="Recent trend"><path d="${path}" fill="none" stroke="#91b6bd" stroke-width="1.4"/></svg>`}
 /* ---------- plotly base ---------- */
 const CFG={displayModeBar:false,responsive:true};
 function lay(o={}){const b={paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"#161a1f",font:{family:"IBM Plex Sans,system-ui,sans-serif",size:11,color:"#b3bcc7"},margin:{l:48,r:16,t:10,b:36},hovermode:"x unified",showlegend:false,
  xaxis:{gridcolor:"#262c34",zeroline:false,linecolor:"#323a44",tickfont:{color:"#76808c"}},yaxis:{gridcolor:"#262c34",zeroline:false,linecolor:"#323a44",tickfont:{color:"#76808c",family:"IBM Plex Mono"}},hoverlabel:{bgcolor:"#1c2127",bordercolor:"#323a44",font:{color:"#eef1f4",size:11,family:"IBM Plex Mono"}}};
+ b.plot_bgcolor="#121820";b.xaxis.gridcolor="#26323e";b.yaxis.gridcolor="#26323e";
  for(const k in o){if(o[k]&&typeof o[k]==="object"&&b[k]&&typeof b[k]==="object")Object.assign(b[k],o[k]);else b[k]=o[k]}return b}
 /* ---------- generic widgets ---------- */
 function seg(id,opts,val,on){return`<span class="seg" id="${id}">${opts.map(o=>`<button data-v="${o[0]}" class="${o[0]===val?"on":""}">${o[1]}</button>`).join("")}</span>`}
@@ -84,51 +87,36 @@ function bindSeg(id,fn){const el=document.getElementById(id);el.querySelectorAll
 function table(host,cols,rows,sortKey,desc=true){
  const st={k:sortKey,d:desc};
  function render(){const r=[...rows].sort((a,b)=>{const x=a[st.k],y=b[st.k];if(x==null)return 1;if(y==null)return -1;return(typeof x==="number"?x-y:String(x).localeCompare(String(y)))*(st.d?-1:1)});
-  host.innerHTML=`<div class="tw"><table><thead><tr>${cols.map(c=>`<th class="${c.n?"n":""} ${st.k===c.k?"s"+(st.d?"":" asc"):""}" data-k="${c.k}">${c.h}</th>`).join("")}</tr></thead><tbody>${r.map(row=>`<tr>${cols.map(c=>{const v=row[c.k];const cls=[c.n?"n":"",c.cls?c.cls(v,row):"",c.k===cols[0].k?"k":""].join(" ");return`<td class="${cls}">${c.f?c.f(v,row):esc(v)}</td>`}).join("")}</tr>`).join("")}</tbody></table></div>`;
-  host.querySelectorAll("th").forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(st.k===k)st.d=!st.d;else{st.k=k;st.d=true}render()})}
+  host.innerHTML=`<div class="tw"><table><thead><tr>${cols.map(c=>`<th tabindex="0" role="columnheader" aria-sort="${st.k===c.k?(st.d?'descending':'ascending'):'none'}" class="${c.n?"n":""} ${st.k===c.k?"s"+(st.d?"":" asc"):""}" data-k="${c.k}">${c.h}</th>`).join("")}</tr></thead><tbody>${r.map(row=>`<tr>${cols.map(c=>{const v=row[c.k];const cls=[c.n?"n":"",c.cls?c.cls(v,row):"",c.k===cols[0].k?"k":""].join(" ");return`<td class="${cls}">${c.f?c.f(v,row):esc(v)}</td>`}).join("")}</tr>`).join("")}</tbody></table></div>`;
+  host.querySelectorAll("th").forEach(th=>{th.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();th.click()}};th.onclick=()=>{const k=th.dataset.k;if(st.k===k)st.d=!st.d;else{st.k=k;st.d=true}render()}})}
  render()}
 function empty(title,how){return`<div class="empty"><b>${esc(title)}</b>${how}</div>`}
 function windowRange(dates,w){if(!w)return null;const end=new Date(dates[dates.length-1]);const s=new Date(end);s.setDate(s.getDate()-7*w);return[s.toISOString().slice(0,10),dates[dates.length-1]]}
-function idxAgo(dates,days){const end=new Date(dates[dates.length-1]);const t=new Date(end);t.setDate(t.getDate()-days);const ts=t.toISOString().slice(0,10);let i=dates.findIndex(d=>d>=ts);return i<0?0:i}
+function idxAgo(dates,days){return dates.indexOf(T.add(dates[dates.length-1],-days))}
 const labChip=n=>`<span class="sw" style="background:${col(n)}"></span>${esc(n)}`;
 /* ---------- nav ---------- */
-const PANELS=[...D.sourceOrder.map(id=>({id,name:D.sources[id].name,src:D.sources[id]})),{id:"overview",name:"Across sources"},{id:"method",name:"Methodology"}];
+const PANELS=[...D.sourceOrder.map(id=>({id,name:D.sources[id].name,src:D.sources[id]})),{id:"overview",name:"Weekly desk"},{id:"method",name:"Methodology"}];
 PANELS.unshift(PANELS.splice(PANELS.findIndex(p=>p.id==="overview"),1)[0]);
 const nav=document.getElementById("nav");
-nav.innerHTML=PANELS.map(p=>`<div class="nav" data-p="${p.id}"><span class="dot ${p.src?(p.src.ok?"ok":"miss"):""}" style="${p.src?"":"visibility:hidden"}"></span><span class="t">${esc(p.name)}${p.src?`<small>${p.src.ok?"as of "+p.src.asof:"no data"}</small>`:""}</span></div>`).join("");
+nav.innerHTML=PANELS.map(p=>`<button class="nav" data-p="${p.id}"><span class="dot ${p.src?(p.src.ok?"ok":"miss"):""}" style="${p.src?"":"visibility:hidden"}"></span><span class="t">${esc(p.name)}${p.src?`<small>${p.src.ok?"as of "+p.src.asof:"no data"}</small>`:""}</span></button>`).join("");
 const main=document.getElementById("main");
 main.innerHTML=PANELS.map(p=>`<section class="panel" id="p-${p.id}"></section>`).join("");
 const built={};
-const RO=new ResizeObserver(es=>es.forEach(e=>{const p=e.target;if(p._fullLayout&&e.contentRect.width>0&&Math.abs(p._fullLayout.width-e.contentRect.width)>2)Plotly.Plots.resize(p)}));
+const RO=new ResizeObserver(es=>es.forEach(e=>{const p=e.target;if(typeof Plotly!=="undefined"&&p._fullLayout&&e.contentRect.width>0&&Math.abs(p._fullLayout.width-e.contentRect.width)>2)Plotly.Plots.resize(p)}));
 function show(id){document.querySelectorAll(".nav").forEach(n=>n.classList.toggle("on",n.dataset.p===id));document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on",p.id==="p-"+id));
  const pane=document.getElementById("p-"+id);
- if(!built[id]){built[id]=true;BUILD[id](pane);pane.querySelectorAll(".plot").forEach(p=>RO.observe(p))}
- requestAnimationFrame(()=>pane.querySelectorAll(".plot").forEach(p=>{if(p._fullLayout)Plotly.Plots.resize(p)}))
+ if(!built[id]){BUILD[id](pane);built[id]=true;pane.querySelectorAll(".plot").forEach(p=>RO.observe(p))}
+ requestAnimationFrame(()=>pane.querySelectorAll(".plot").forEach(p=>{if(typeof Plotly!=="undefined"&&p._fullLayout)Plotly.Plots.resize(p)}))
  try{localStorage.setItem("tm_panel",id)}catch(e){}location.hash=id}
 nav.querySelectorAll(".nav").forEach(n=>n.onclick=()=>show(n.dataset.p));
 function head(src,extra=""){return`<div class="ph"><div><h1>${esc(src.name)}</h1><p>${esc(src.what)}</p><div class="skew">Skew: ${esc(src.skew)}</div></div><div><span class="chip ${src.ok?"":"miss"}"><span class="dot"></span>${src.ok?"as of "+src.asof:"no data yet"}</span> <span class="chip">${esc(src.unit)}</span>${extra}</div></div>`}
 const BUILD={};
 /* ================= OVERVIEW ================= */
-BUILD.overview=function(el){
- const S=D.sources;let reads="";
- const v=D.vercel;if(v.ok){const last=v.dates.length-1;const lead=m=>Object.entries(v.labs).map(([l,x])=>[l,x[m]?x[m][last]:null]).filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1])[0];
-  const t=lead("tokens"),s=lead("spend");reads+=`<div class="read"><div class="l">Vercel · token leader</div><div class="v">${labChip(t[0])}</div><div class="s">${fP(t[1])} of gateway tokens, ${v.asof}</div></div><div class="read"><div class="l">Vercel · spend leader</div><div class="v">${labChip(s[0])}</div><div class="s">${fP(s[1])} of gateway spend</div></div>`}
- const o=D.openrouter;if(o.ok){const n=o.weeks.length-1;const lead=Object.entries(o.labs).filter(([l])=>!l.startsWith("Other")).sort((a,b)=>b[1][n]-a[1][n])[0];
-  reads+=`<div class="read"><div class="l">OpenRouter · weekly tokens</div><div class="v">${fT(o.total[n])}</div><div class="s">week of ${o.weeks[n]} · ${fS(o.total[n]/o.total[n-1]-1)} vs prior week</div></div><div class="read"><div class="l">OpenRouter · token leader</div><div class="v">${labChip(lead[0])}</div><div class="s">${fP(lead[1][n]/o.total[n])} of OpenRouter tokens</div></div>`}
- else reads+=`<div class="read"><div class="l">OpenRouter</div><div class="v">—</div><div class="s">waiting for API key</div></div>`;
- const p=D.pricing;if(p.ok){const top=[...p.rows].sort((a,b)=>(b.idx||0)-(a.idx||0))[0];const fr=p.frontier[p.frontier.length-1];reads+=`<div class="read"><div class="l">Highest AA index</div><div class="v">${esc(top.name.split(":").pop().trim())}</div><div class="s">index ${top.idx} · blended ${f$(top.blended)}/Mtok</div></div>`}
- const c=D.cloudflare;if(c.ok){const n=c.dates.length-1;const top=Object.entries(c.services).filter(([s,r])=>r[n]!=null).sort((a,b)=>a[1][n]-b[1][n])[0];reads+=`<div class="read"><div class="l">Cloudflare · #1 GenAI service</div><div class="v">${esc(top[0])}</div><div class="s">by DNS popularity, ${c.asof}</div></div>`}
- let board="";
- if(D.agreement){const A=D.agreement;const lim=Math.max(...A.z.flat().filter(x=>x!=null).map(Math.abs),1);
-  board=`<div class="block"><div class="bh"><h2>Who is gaining share · last 4 weeks, by source</h2><span class="sp"></span><span class="lbl">percentage points of share; Cloudflare = rank places</span></div><div class="tw"><table class="board"><thead><tr><th>Lab</th>${A.cols.map(c=>`<th class="n">${esc(c)}</th>`).join("")}<th class="n">Sources up</th></tr></thead><tbody>${A.labs.map((l,i)=>{const row=A.z[i];const up=row.filter((x,j)=>x!=null&&(A.cols[j].includes("rank")?x<0:x>0)).length;const n=row.filter(x=>x!=null).length;
-   return`<tr><td class="k">${labChip(l)}</td>${row.map((x,j)=>{if(x==null)return`<td class="c" style="color:#4a525c">·</td>`;const rank=A.cols[j].includes("rank");const good=rank?x<0:x>0;const a=Math.min(Math.abs(x)/lim,1)*.55+.08;return`<td class="c" style="background:${good?`rgba(90,160,242,${a})`:`rgba(229,98,106,${a})`}">${(x>0?"+":"")+x.toFixed(1)}</td>`}).join("")}<td class="n">${up}/${n}</td></tr>`}).join("")}</tbody></table></div><div class="note">Each column is one dataset, unadjusted. Read across a row: when most sources move the same way, that is the signal. Levels are not comparable between columns.</div></div>`}
- const status=`<div class="block"><div class="bh"><h2>Datasets</h2></div><div class="tw"><table><thead><tr><th>Dataset</th><th>Status</th><th>Latest</th><th>What it measures</th><th>Skew</th></tr></thead><tbody>${D.sourceOrder.map(id=>{const s=S[id];return`<tr><td class="k"><a href="#${id}" onclick="show('${id}');return false">${esc(s.name)}</a></td><td><span class="chip ${s.ok?"":"miss"}"><span class="dot"></span>${s.ok?"live":"no data"}</span></td><td class="n">${s.asof||"—"}</td><td style="white-space:normal;max-width:36ch">${esc(s.what)}</td><td style="white-space:normal;max-width:40ch;color:var(--mute)">${esc(s.skew)}</td></tr>`}).join("")}</tbody></table></div></div>`;
- el.innerHTML=`<div class="ph"><div><h1>Across sources</h1><p>Each dataset is a slice of the market with its own skew. Nothing here is fused into one number; agreement between slices is the read.</p></div><span class="chip">built ${D.built}</span></div><div class="reads">${reads}</div>${board}${status}`};
 /* ================= OPENROUTER ================= */
 BUILD.openrouter=function(el){
  const o=D.openrouter,src=D.sources.openrouter;
- if(!o.ok){el.innerHTML=head(src)+`<div class="block">${empty("No OpenRouter rows yet.","Add <code>OPENROUTER_API_KEY</code> to <code>.env</code> and run <code>python run.py</code>. History backfills from 2025-01-01 in one pass.")}</div>`;return}
- const n=o.weeks.length-1,tot=o.total;const a4=Math.max(0,n-4);
+ if(!o.ok){el.innerHTML=head(src)+`<div class="block">${empty("No OpenRouter rows yet.","No complete observed week is available. See source coverage and the collection log for the latest result.")}</div>`;return}
+ const n=o.weeks.length-1,tot=o.total;const a4=o.weeks.indexOf(T.add(o.weeks[n],-28));
  const labs=Object.keys(o.labs).filter(l=>!l.startsWith("Other (")).sort((a,b)=>o.labs[b][n]-o.labs[a][n]);
  const models=Object.keys(o.models).sort((a,b)=>o.models[b].v[n]-o.models[a].v[n]);
  const st={group:"lab",view:"abs",win:26,stack:"lines",sel:new Set(labs.slice(0,8))};
@@ -160,7 +148,7 @@ BUILD.openrouter=function(el){
 /* ================= VERCEL ================= */
 BUILD.vercel=function(el){
  const v=D.vercel,src=D.sources.vercel;
- if(!v.ok){el.innerHTML=head(src)+`<div class="block">${empty("No Vercel rows yet.","The export is public; run <code>python run.py</code>.")}</div>`;return}
+ if(!v.ok){el.innerHTML=head(src)+`<div class="block">${empty("No Vercel rows yet.","No gateway observations have been collected. See the collection log for the latest result.")}</div>`;return}
  const n=v.dates.length-1,a28=idxAgo(v.dates,28);
  const st={metric:"tokens",group:"labs",win:0,sel:null};
  const ents=()=>Object.keys(v[st.group]).filter(e=>e!=="Other").sort((a,b)=>(v[st.group][b][st.metric]?.[n]||0)-(v[st.group][a][st.metric]?.[n]||0));
@@ -178,52 +166,30 @@ BUILD.vercel=function(el){
  <div class="grid2">${["apps","providers"].map(k=>v.ranks?.[k]?`<div class="block"><div class="bh"><h2>Top ${k} by ${esc(v.ranks[k][0].by.toLowerCase())}</h2></div><div class="tw"><table><thead><tr><th class="n">#</th><th>${k==="apps"?"App":"Provider"}</th><th></th></tr></thead><tbody>${v.ranks[k].map(r=>`<tr><td class="n">${r.rank}</td><td class="k">${esc(r.name)}</td><td>${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url.replace(/^https?:\/\//,"").replace(/\/$/,""))}</a>`:""}</td></tr>`).join("")}</tbody></table></div><div class="note">Rank only; Vercel does not publish the volumes behind this list.</div></div>`:"").join("")}</div>`;
  function chips(){const list=ents().slice(0,st.group==="labs"?18:24);if(!st.sel)st.sel=new Set(list.slice(0,8));document.getElementById("vc-chips").innerHTML=list.map(e=>`<button class="ent ${st.sel.has(e)?"on":""}" data-e="${esc(e)}"><i style="background:${col(e)}"></i>${esc(e)}</button>`).join("")+`<button class="ent on" data-e="__all" style="opacity:.8">all / none</button>`;
   document.getElementById("vc-chips").querySelectorAll(".ent").forEach(b=>b.onclick=()=>{const e=b.dataset.e;if(e==="__all"){if(st.sel.size)st.sel.clear();else list.forEach(x=>st.sel.add(x))}else{st.sel.has(e)?st.sel.delete(e):st.sel.add(e)}chips();plot()})}
- function plot(){const tr=ents().filter(e=>st.sel.has(e)).map(e=>({x:v.dates,y:v[st.group][e][st.metric]||[],name:e,mode:"lines",line:{width:2,color:col(e)},connectgaps:true,hovertemplate:"%{y:.1%}<extra>"+esc(e)+"</extra>"}));
+ function plot(){const tr=ents().filter(e=>st.sel.has(e)).map(e=>({x:v.dates,y:v[st.group][e][st.metric]||[],name:e,mode:"lines",line:{width:2,color:col(e)},connectgaps:false,hovertemplate:"%{y:.1%}<extra>"+esc(e)+"</extra>"}));
   Plotly.react("vc-plot",tr,lay({yaxis:{tickformat:".0%",rangemode:"tozero"},xaxis:{range:windowRange(v.dates,+st.win)}}),CFG)}
  function tbl(){document.getElementById("vc-tl").textContent=st.group==="labs"?"lab":"model";const rows=ents().map(e=>{const s=v[st.group][e];const g=m=>s[m]||[];return{e,tok:g("tokens")[n],tok7:avg7(g("tokens"),n),tokd:g("tokens")[n]!=null&&g("tokens")[a28]!=null?g("tokens")[n]-g("tokens")[a28]:null,spend:g("spend")[n],spend7:avg7(g("spend"),n),req:g("requests")[n],gap:g("spend")[n]!=null&&g("tokens")[n]!=null?g("spend")[n]-g("tokens")[n]:null,sp:g("tokens").slice(-28)}});
   table(document.getElementById("vc-table"),[{k:"e",h:st.group==="labs"?"Lab":"Model",f:labChip},{k:"tok",h:"Tokens",n:1,f:fP},{k:"tok7",h:"Tokens 7d avg",n:1,f:fP},{k:"tokd",h:"Tokens Δ 4w",n:1,f:fPP,cls:x=>x>0?"up":x<0?"dn":""},{k:"spend",h:"Spend",n:1,f:fP},{k:"spend7",h:"Spend 7d avg",n:1,f:fP},{k:"req",h:"Requests",n:1,f:fP},{k:"gap",h:"Spend − tokens",n:1,f:fPP,cls:x=>x>0?"up":x<0?"dn":""},{k:"sp",h:"28 days (tokens)",f:v=>spark(v)}],rows,"tok")}
  bindSeg("vc-m",x=>{st.metric=x;chips();plot()});bindSeg("vc-g",x=>{st.group=x;st.sel=null;chips();plot();tbl()});bindSeg("vc-w",x=>{st.win=x;plot()});
  chips();plot();tbl()};
 /* ================= PRICING ================= */
-BUILD.pricing=function(el){
- const p=D.pricing,src=D.sources.pricing;
- if(!p.ok){el.innerHTML=head(src)+`<div class="block">${empty("No pricing snapshot yet.","Run <code>python run.py</code>; this source is public.")}</div>`;return}
- const rows=p.rows;const fr=p.frontier[p.frontier.length-1];const cheapest=[...rows].filter(r=>r.idx>=fr.idx*0.9).sort((a,b)=>a.blended-b.blended)[0];
- const st={q:"",open:"all"};
- el.innerHTML=head(src)+`<div class="reads">
-  <div class="read"><div class="l">Models with an AA index</div><div class="v">${rows.length}</div><div class="s">of ${rows.length} priced text models on OpenRouter, ${p.asof}</div></div>
-  <div class="read"><div class="l">Top of the index</div><div class="v" style="font-size:15px">${esc(fr.model)}</div><div class="s">index ${fr.idx} at ${f$(fr.blended)}/Mtok blended</div></div>
-  <div class="read"><div class="l">Cheapest near the top</div><div class="v" style="font-size:15px">${esc(cheapest.model)}</div><div class="s">index ${cheapest.idx} at ${f$(cheapest.blended)}/Mtok (within 10% of the top index)</div></div>
-  <div class="read"><div class="l">Price changes since last snapshot</div><div class="v">${p.n_snapshots>1?p.changes.length:"—"}</div><div class="s">${p.n_snapshots>1?"see log below":"first snapshot; log starts next week"}</div></div></div>
- <div class="block"><div class="bh"><h2>Price against quality</h2><span class="sp"></span><span class="lbl">weights</span>${seg("pr-o",[["all","All"],["open","Open"],["closed","Closed"]],"all")}<span class="lbl">y = blended $/Mtok, log · dotted = cheapest model at each quality level</span></div><div class="plot" id="pr-plot"></div><div class="note">Blended = 70% cached input + 20% input + 10% output, the Artificial Analysis convention. Open circles are open-weight models. Point size is last week's OpenRouter tokens when available.</div></div>
- <div class="block"><div class="bh"><h2>All priced models</h2><span class="sp"></span><input class="q" id="pr-q" placeholder="filter by name or lab"></div><div id="pr-table"></div></div>
- ${p.changes.length?`<div class="block"><div class="bh"><h2>Price changes, last two snapshots</h2></div><div id="pr-ch"></div></div>`:""}`;
- function filt(){return rows.filter(r=>(st.open==="all"||(st.open==="open")===!!r.open)&&(!st.q||(r.model+" "+r.name+" "+r.lab).toLowerCase().includes(st.q)))}
- function plot(){const R=filt();const labs=[...new Set(R.map(r=>r.lab))].sort((a,b)=>(LAB[a]?0:1)-(LAB[b]?0:1)||a.localeCompare(b));const mx=Math.max(...R.map(r=>Math.sqrt(r.or_tokens||0)),1);
-  const tr=labs.map(l=>{const s=R.filter(r=>r.lab===l);return{x:s.map(r=>r.idx),y:s.map(r=>r.blended),name:l,mode:"markers",marker:{size:s.map(r=>8+26*Math.sqrt(r.or_tokens||0)/mx),color:col(l),line:{width:1,color:"#161a1f"},symbol:s.map(r=>r.open?"circle-open":"circle"),opacity:.9},customdata:s.map(r=>[r.model,r.pin,r.pout,r.pcache]),hovertemplate:"%{customdata[0]}<br>index %{x} · blended $%{y:.2f}/Mtok<br>in $%{customdata[1]:.2f} · out $%{customdata[2]:.2f} · cache $%{customdata[3]:.3f}<extra></extra>"}});
-  tr.push({x:p.frontier.map(f=>f.idx),y:p.frontier.map(f=>f.blended),mode:"lines",line:{color:"#b3bcc7",width:1,dash:"dot"},hoverinfo:"skip",name:"frontier"});
-  Plotly.react("pr-plot",tr,lay({hovermode:"closest",showlegend:true,legend:{orientation:"h",y:-0.16,font:{size:10}},margin:{b:60},xaxis:{title:{text:"Artificial Analysis Intelligence Index",font:{size:11}}},yaxis:{type:"log",tickvals:[0.01,0.03,0.1,0.3,1,3,10,30],tickformat:"$.2~f"}}),CFG)}
- function tbl(){table(document.getElementById("pr-table"),[{k:"model",h:"Model",f:(v,r)=>`<span title="${esc(r.name)}">${esc(v)}</span>`},{k:"lab",h:"Lab",f:labChip},{k:"open",h:"Weights",f:v=>v==null?"?":v?"open":"closed"},{k:"idx",h:"AA index",n:1},{k:"coding",h:"Coding",n:1},{k:"agentic",h:"Agentic",n:1},{k:"pin",h:"Input $/M",n:1,f:f$},{k:"pout",h:"Output $/M",n:1,f:f$},{k:"pcache",h:"Cached $/M",n:1,f:f$},{k:"blended",h:"Blended $/M",n:1,f:f$},{k:"or_tokens",h:"OR tokens/wk",n:1,f:v=>v?fT(v):"—"},{k:"created",h:"Listed",f:v=>v||"—"}],filt(),"idx")}
- bindSeg("pr-o",x=>{st.open=x;plot();tbl()});document.getElementById("pr-q").oninput=e=>{st.q=e.target.value.toLowerCase();plot();tbl()};
- if(p.changes.length)table(document.getElementById("pr-ch"),[{k:"model",h:"Model"},{k:"in_old",h:"Input was",n:1,f:f$},{k:"in_new",h:"Input now",n:1,f:f$},{k:"din",h:"Δ input",n:1,f:fS,cls:x=>x<0?"up":x>0?"dn":""},{k:"out_old",h:"Output was",n:1,f:f$},{k:"out_new",h:"Output now",n:1,f:f$}],p.changes.map(c=>({...c,din:c.in_old?c.in_new/c.in_old-1:null})),"din",false);
- plot();tbl()};
 /* ================= CLOUDFLARE ================= */
 BUILD.cloudflare=function(el){
  const c=D.cloudflare,src=D.sources.cloudflare;
- if(!c.ok){el.innerHTML=head(src)+`<div class="block">${empty("No Cloudflare rows yet.","Add <code>CF_API_TOKEN</code> (a Radar read token) to <code>.env</code> and run <code>python run.py</code>. Up to 52 weeks of daily ranks load on the first run.")}</div>`;return}
+ if(!c.ok){el.innerHTML=head(src)+`<div class="block">${empty("No Cloudflare rows yet.","No DNS popularity ranks have been collected. See the collection log for the latest result.")}</div>`;return}
  const n=c.dates.length-1,a28=idxAgo(c.dates,28);const svc=Object.keys(c.services).filter(s=>c.services[s][n]!=null).sort((a,b)=>c.services[a][n]-c.services[b][n]);
  const st={win:13,sel:new Set(svc.slice(0,10))};
  el.innerHTML=head(src)+`<div class="reads">${svc.slice(0,4).map((s,i)=>`<div class="read"><div class="l">#${i+1}</div><div class="v" style="font-size:16px">${esc(s)}</div><div class="s">${c.services[s][a28]!=null?(c.services[s][a28]===c.services[s][n]?"unchanged":"was #"+c.services[s][a28])+" 4 wks ago":""}</div></div>`).join("")}</div>
- <div class="block"><div class="bh"><h2>Daily rank</h2><span class="sp"></span><span class="lbl">window</span>${seg("cf-w",[["4","4w"],["13","13w"],["26","26w"],["0","All"]],"13")}</div><div class="chips" id="cf-chips"></div><div class="plot" id="cf-plot"></div></div>
+ <div class="block"><div class="bh"><h2>Observed DNS rank</h2><span class="sp"></span><span class="lbl">window</span>${seg("cf-w",[["4","4w"],["13","13w"],["26","26w"],["0","All"]],"13")}</div><div class="chips" id="cf-chips"></div><div class="plot" id="cf-plot"></div></div>
  <div class="block"><div class="bh"><h2>Services</h2></div><div id="cf-table"></div></div>`;
  function chips(){document.getElementById("cf-chips").innerHTML=svc.map(e=>`<button class="ent ${st.sel.has(e)?"on":""}" data-e="${esc(e)}"><i style="background:${col(e)}"></i>${esc(e)}</button>`).join("");document.getElementById("cf-chips").querySelectorAll(".ent").forEach(b=>b.onclick=()=>{const e=b.dataset.e;st.sel.has(e)?st.sel.delete(e):st.sel.add(e);chips();plot()})}
- function plot(){const tr=svc.filter(s=>st.sel.has(s)).map(s=>({x:c.dates,y:c.services[s],name:s,mode:"lines",line:{width:2,color:col(s)},connectgaps:true,hovertemplate:"#%{y}<extra>"+esc(s)+"</extra>"}));Plotly.react("cf-plot",tr,lay({yaxis:{autorange:"reversed",dtick:1,tickformat:"d"},xaxis:{range:windowRange(c.dates,+st.win)}}),CFG)}
+ function plot(){const tr=svc.filter(s=>st.sel.has(s)).map(s=>({x:c.dates,y:c.services[s],name:s,mode:"lines",line:{width:2,color:col(s)},connectgaps:false,hovertemplate:"#%{y}<extra>"+esc(s)+"</extra>"}));Plotly.react("cf-plot",tr,lay({yaxis:{autorange:"reversed",dtick:1,tickformat:"d"},xaxis:{range:windowRange(c.dates,+st.win)}}),CFG)}
  table(document.getElementById("cf-table"),[{k:"s",h:"Service",f:labChip},{k:"r",h:"Rank",n:1},{k:"r28",h:"4 wks ago",n:1,f:v=>v==null?"—":"#"+v},{k:"d",h:"Change",n:1,f:v=>v==null?"—":v===0?"0":(v<0?"↑":"↓")+Math.abs(v),cls:v=>v<0?"up":v>0?"dn":""},{k:"best",h:"Best rank in window",n:1},{k:"sp",h:"13 weeks",f:v=>spark(v.map(x=>x==null?null:-x))}],svc.map(s=>{const r=c.services[s];return{s,r:r[n],r28:r[a28],d:r[a28]!=null?r[n]-r[a28]:null,best:Math.min(...r.filter(x=>x!=null)),sp:r.slice(-91)}}),"r",false);
  bindSeg("cf-w",x=>{st.win=x;plot()});chips();plot()};
 /* ================= RAMP ================= */
 BUILD.ramp=function(el){
  const r=D.ramp,src=D.sources.ramp;
- if(!r.ok){el.innerHTML=head(src)+`<div class="block">${empty("No Ramp rows yet.","The series are embedded in ramp.com/data/ai-index; run <code>python run.py</code> to pull them.")}</div>`;return}
+ if(!r.ok){el.innerHTML=head(src)+`<div class="block">${empty("No Ramp rows yet.","No paid-adoption observations have been collected. See the collection log for the latest result.")}</div>`;return}
  const n=r.months.length-1;const V=r.vendors;const g=(s,i)=>s?s[i]:null;
  const vend=Object.keys(V).filter(v=>v!=="all"&&v!=="census").sort((a,b)=>(g(V[b],n)||0)-(g(V[a],n)||0));
  const d=(s,k)=>g(s,n)!=null&&g(s,n-k)!=null?g(s,n)-g(s,n-k):null;const pp=x=>x==null?"":(x>0?"+":"")+x.toFixed(1)+"pp";
@@ -239,7 +205,7 @@ BUILD.ramp=function(el){
  <div class="block"><div class="bh"><h2>Model share, latest month</h2></div><div id="rp-mtable"></div></div>`:""}
  ${r.spend.median_pepm?`<div class="block"><div class="bh"><h2>AI spend per employee per month</h2><span class="sp"></span><span class="lbl">log scale</span></div><div class="plot sm" id="rp-splot"></div></div>`:""}`;
  function plot(){const S=r[st.cut];const keys=Object.keys(S).filter(k=>st.cut!=="vendors"||true).sort((a,b)=>(g(S[b],n)||0)-(g(S[a],n)||0));
-  const tr=keys.map(k=>({x:r.months,y:S[k],name:k,mode:"lines",line:{width:k==="all"?2.5:2,color:k==="all"?"#eef1f4":k==="census"?"#76808c":col(k),dash:k==="census"?"dot":"solid"},connectgaps:true,hovertemplate:"%{y:.1f}%<extra>"+esc(k==="all"?"Ramp overall":k==="census"?"Census estimate":k)+"</extra>"}));
+  const tr=keys.map(k=>({x:r.months,y:S[k],name:k,mode:"lines",line:{width:k==="all"?2.5:2,color:k==="all"?"#eef1f4":k==="census"?"#76808c":col(k),dash:k==="census"?"dot":"solid"},connectgaps:false,hovertemplate:"%{y:.1f}%<extra>"+esc(k==="all"?"Ramp overall":k==="census"?"Census estimate":k)+"</extra>"}));
   Plotly.react("rp-plot",tr,lay({yaxis:{ticksuffix:"%",rangemode:"tozero"},showlegend:st.cut!=="vendors"||true,legend:{orientation:"h",y:-0.16,font:{size:10}},margin:{b:70}}),CFG)}
  function tbl(){const S=r[st.cut];document.getElementById("rp-tl").textContent={vendors:"vendor",sectors:"sector",sizes:"business size"}[st.cut];
   table(document.getElementById("rp-table"),[{k:"e",h:{vendors:"Vendor",sectors:"Sector",sizes:"Size"}[st.cut],f:v=>v==="all"?"Ramp overall":v==="census"?"Census estimate":labChip(v)},{k:"v",h:"Adoption",n:1,f:v=>v==null?"—":v.toFixed(1)+"%"},{k:"m1",h:"m/m",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m3",h:"3m",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"m12",h:"y/y",n:1,f:pp,cls:x=>x>0?"up":x<0?"dn":""},{k:"sp",h:"12 months",f:v=>spark(v)}],Object.keys(S).map(k=>({e:k,v:g(S[k],n),m1:d(S[k],1),m3:d(S[k],3),m12:d(S[k],12),sp:S[k].slice(-12)})),"v")}
@@ -253,12 +219,12 @@ BUILD.ramp=function(el){
  bindSeg("rp-c",x=>{st.cut=x;plot();tbl()});
  if(r.model_months?.length){bindSeg("rp-m",x=>{st.mview=x;mplot()});mplot();mtbl()}
  if(r.spend.median_pepm){const S=r.spend;const L={median_pepm:"median",p90_pepm:"p90",p99_pepm:"p99",top_10_percent_median_pepm:"top 10% median",top_1_percent_median_pepm:"top 1% median"};
-  Plotly.newPlot("rp-splot",Object.entries(L).filter(([k])=>S[k]).map(([k,name],i)=>({x:r.months,y:S[k],name,mode:"lines",line:{width:2,color:["#eef1f4","#5aa0f2","#9d8df1","#d9a441","#e8743b"][i]},connectgaps:true,hovertemplate:"$%{y:,.0f}<extra>"+name+"</extra>"})),lay({yaxis:{type:"log",tickprefix:"$",tickformat:",.0f"},showlegend:true,legend:{orientation:"h",y:-0.2,font:{size:10}},margin:{b:60}}),CFG)}
+  Plotly.newPlot("rp-splot",Object.entries(L).filter(([k])=>S[k]).map(([k,name],i)=>({x:r.months,y:S[k],name,mode:"lines",line:{width:2,color:["#eef1f4","#5aa0f2","#9d8df1","#d9a441","#e8743b"][i]},connectgaps:false,hovertemplate:"$%{y:,.0f}<extra>"+name+"</extra>"})),lay({yaxis:{type:"log",tickprefix:"$",tickformat:",.0f"},showlegend:true,legend:{orientation:"h",y:-0.2,font:{size:10}},margin:{b:60}}),CFG)}
  plot();tbl()};
 /* ================= DISCLOSURES ================= */
 BUILD.disclosures=function(el){
  const d=D.disclosures,src=D.sources.disclosures;
- if(!d.ok){el.innerHTML=head(src)+`<div class="block">${empty("No disclosures logged yet.","Add rows to <code>data/manual/disclosures.csv</code> with the definition quoted verbatim and a source link, then run <code>python run.py</code>.")}</div>`;return}
+ if(!d.ok){el.innerHTML=head(src)+`<div class="block">${empty("No disclosures logged yet.","No company-reported figures are loaded. Definitions and original sources are required before comparing disclosures.")}</div>`;return}
  const mult={T:1e12,Q:1e15,B:1e9};const rows=d.rows.map(r=>({...r,abs:r.value*(mult[r.unit]||1)}));
  el.innerHTML=head(src)+`<div class="block"><div class="bh"><h2>Stated token volumes</h2><span class="sp"></span><span class="lbl">points only, by design</span></div><div class="plot sm" id="dc-plot"></div></div><div class="block"><div class="bh"><h2>Log</h2></div><div id="dc-table"></div></div>`;
  const cos=[...new Set(rows.map(r=>r.company))];
@@ -267,11 +233,14 @@ BUILD.disclosures=function(el){
 /* ================= METHOD ================= */
 BUILD.method=function(el){
  el.innerHTML=`<div class="ph"><div><h1>Methodology</h1><p>How the page is built and what each number can and cannot say.</p></div></div><div class="meth">
- <h3>Principle</h3><ul><li>No public source is the market. Each is a slice with a known skew, stated on its panel. The page never fuses sources into one share number.</li><li>Levels differ by source; changes are comparable. Lead with changes.</li><li>Token share and spend share disagree systematically: open models win tokens, frontier models win dollars. Both are shown.</li></ul>
- <h3>Definitions</h3><ul><li><b>Week</b>: ISO week, Monday start. Only complete weeks are shown for OpenRouter.</li><li><b>Share</b>: entity tokens divided by all tokens in that source for that day or week, including the unnamed "other" bucket.</li><li><b>vs 4 weeks ago</b>: this week's value against the value four weeks earlier. Share Δ is in percentage points.</li><li><b>Blended price</b>: 0.7 × cached-input + 0.2 × input + 0.1 × output, $ per million tokens. Where a model lists no cache price, cached input is priced as input.</li><li><b>Open weights</b>: the model has a Hugging Face id on OpenRouter, or its lab publishes all models openly. Vercel only publishes lab names, so mixed labs count as closed there.</li></ul>
- <h3>Caveats</h3><ul><li>Token counts use each provider's own tokenizer; a token at one lab is not a token at another. Growth within a lab is sound; ratios across labs are approximate.</li><li>OpenRouter's user mix moves on its own (a free model appears, a coding tool changes routing). A jump there can be mix, not demand. That is why the cross-source board exists.</li><li>Vercel publishes share, not volume, over a rolling 60-day window. History accrues from weekly snapshots; no Vercel growth rate is possible.</li><li>Ramp is adoption (share of firms paying), not usage. Cloudflare is rank only. Disclosures are marketing figures with inconsistent definitions and are never connected.</li></ul>
+ <h3>Principle</h3><ul><li>No public source is the market. Each is a slice with a known skew, stated on its panel. The page never fuses sources into one share number.</li><li>Changes can be compared directionally; units, populations and periods remain different. Vercel token and spend metrics are one source, not independent confirmations.</li><li>Token share and spend share can diverge. Neither is inferred from the other.</li></ul>
+ <h3>Definitions</h3><ul><li><b>Week</b>: Monday–Sunday with seven observed dates. OpenRouter tokens are summed; Vercel daily shares are averaged across seven observed days (not volume-weighted). Calendar-exact comparison periods are required. Missing periods do not become zero.</li><li><b>Weekly desk</b>: 1W, 4W or 13W comparison controls share changes. Volume cards always show current and prior WoW growth. Ramp uses the prior calendar month; Cloudflare requires a rank on the exact comparison date. Each column shows its own dates.</li><li><b>Recent listings</b>: catalog creation within eight weeks of the observed OpenRouter week, not a verified lab announcement. Share changes cannot distinguish external share capture from cannibalization on their own.</li><li><b>Freshness</b>: more than 10 days behind the build date is stale for daily/weekly feeds; more than 75 days for monthly Ramp. A current source can still have unavailable historical comparisons.</li><li><b>Share</b>: entity tokens divided by all tokens in that source for that day or week, including the unnamed "other" bucket.</li><li><b>vs 4 weeks ago</b>: this week's value against the value four weeks earlier. Share Δ is in percentage points.</li><li><b>Price</b>: published input, output and cache-read prices per million tokens, shown separately. Missing cache prices stay unavailable. Same-model history is required to measure price declines. The price/quality envelope uses the selected input or output price and the latest available AA score, not an estimated workload.</li><li><b>Open weights</b>: the model has a Hugging Face id on OpenRouter, or its lab publishes all models openly. Open-weight share is calculated from model-level OpenRouter metadata only. It is not inferred from Vercel lab names. Unknown and unnamed models stay separate; the denominator includes all tokens. Catalog heuristics can misclassify models, so use model-map overrides when verified.</li></ul>
+ <h3>Caveats</h3><ul><li>Token counts use each provider's own tokenizer; a token at one lab is not a token at another. Even within a lab, model mix and caching changes can affect the relationship to compute demand.</li><li>OpenRouter's user mix moves on its own (a free model appears, a coding tool changes routing). A jump there can be mix, not demand. That is why the cross-source board exists.</li><li>Vercel publishes share, not volume, over a rolling 60-day window. History accrues from weekly snapshots; no Vercel growth rate is possible.</li><li>Ramp is adoption (share of firms paying), not usage. Cloudflare is rank only. Disclosures are marketing figures with inconsistent definitions and are never connected.</li></ul>
  <h3>Attribution</h3><p>Source: OpenRouter (openrouter.ai/rankings, openrouter.ai/apps), as of ${D.openrouter.asof||D.built}. Vercel AI Gateway leaderboard, CC BY 4.0. Quality indices by Artificial Analysis. Ramp AI Index. Cloudflare Radar.</p>
- <h3>Last run</h3><div class="block"><div class="tw"><table><thead><tr><th>Step</th><th>Ran</th><th class="n">Rows added</th><th>Note</th></tr></thead><tbody>${D.runlog.map(r=>`<tr><td class="k">${esc(r.source)}</td><td>${esc(r.last)}</td><td class="n">${r.rows}</td><td style="color:var(--mute)">${esc(r.note)}</td></tr>`).join("")}</tbody></table></div></div></div>`};
+ <h3>Latest result per collection step</h3><div class="block"><div class="tw"><table><thead><tr><th>Step</th><th>Ran</th><th class="n">Rows added</th><th>Note</th></tr></thead><tbody>${D.runlog.map(r=>`<tr><td class="k">${esc(r.source)}</td><td>${esc(r.last)}</td><td class="n">${r.rows}</td><td style="color:var(--mute)">${esc(r.note)}</td></tr>`).join("")}</tbody></table></div></div></div>`};
+{{TERMINAL_CORE}}
+{{TERMINAL_JS}}
 /* ---------- boot ---------- */
-let start=location.hash.slice(1);try{start=start||localStorage.getItem("tm_panel")}catch(e){}if(!PANELS.some(p=>p.id===start))start="overview";show(start);
+let start=location.hash.slice(1);if(!PANELS.some(p=>p.id===start))start="overview";show(start);
+window.addEventListener("hashchange",()=>{const id=location.hash.slice(1);if(PANELS.some(p=>p.id===id))show(id)});
 </script></body></html>

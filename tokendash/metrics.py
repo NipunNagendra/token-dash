@@ -194,18 +194,23 @@ def vercel_spend_gap(con) -> pd.DataFrame:
 # ---------------- Pricing ----------------
 
 def pricing(con) -> pd.DataFrame:
-    """Blended $/Mtok at 7:2:1 cache-read:input:output. If no cache price is listed, cache-read = input."""
-    df = con.execute("""
-        SELECT a.model_id, p.name, a.intelligence_idx, a.coding_idx, a.agentic_idx,
+    """Latest actual list prices, including models without a quality benchmark.
+
+    Keep cache null when unlisted; do not invent a workload mix or effective price.
+    Quality is the latest available AA snapshot, with its date disclosed separately.
+    """
+    return con.execute("""
+        SELECT p.model_id, p.name, a.intelligence_idx, a.coding_idx, a.agentic_idx,
                p.prompt_price*1e6 AS p_in, p.completion_price*1e6 AS p_out,
-               coalesce(p.cache_read_price, p.prompt_price)*1e6 AS p_cache, p.created,
-               coalesce(m.lab, split_part(a.model_id,'/',1)) AS lab, m.open_weights
-        FROM or_aa a JOIN or_pricing p USING (snapshot_date, model_id)
-        LEFT JOIN model_map m ON m.permaslug = a.model_id
-        WHERE a.snapshot_date=(SELECT max(snapshot_date) FROM or_aa) AND a.intelligence_idx IS NOT NULL
-          AND p.prompt_price > 0 AND a.model_id NOT LIKE '%:%'""").df()
-    df["blended"] = 0.7 * df["p_cache"] + 0.2 * df["p_in"] + 0.1 * df["p_out"]
-    return df
+               p.cache_read_price*1e6 AS p_cache, p.created,
+               coalesce(m.lab, split_part(p.model_id,'/',1)) AS lab, m.open_weights
+        FROM or_pricing p LEFT JOIN or_aa a ON a.model_id=p.model_id
+          AND a.snapshot_date=(SELECT max(snapshot_date) FROM or_aa)
+        LEFT JOIN model_map m ON m.permaslug=p.model_id
+        WHERE p.snapshot_date=(SELECT max(snapshot_date) FROM or_pricing)
+          AND p.prompt_price >= 0 AND p.completion_price >= 0
+          AND p.modality LIKE '%text%' AND p.model_id NOT LIKE '%:%'
+    """).df()
 
 
 def frontier(df: pd.DataFrame) -> pd.DataFrame:
@@ -286,6 +291,12 @@ def agreement(con, weeks=4) -> pd.DataFrame:
 
 def source_status(con) -> pd.DataFrame:
     return con.execute("""
-        SELECT source, max(run_at) AS last_run, sum(rows_added) AS rows_added,
-               any_value(note ORDER BY run_at DESC) AS last_note
-        FROM run_log GROUP BY source ORDER BY source""").df()
+        WITH normalized AS (
+          SELECT CASE source WHEN 'or_rankings_daily' THEN 'or_daily'
+                   WHEN 'or_app_rankings' THEN 'or_apps' WHEN 'cloudflare' THEN 'cf_rank'
+                   ELSE source END AS source, run_at, rows_added, note
+          FROM run_log
+        )
+        SELECT source, run_at AS last_run, rows_added, note AS last_note FROM normalized
+        QUALIFY row_number() OVER (PARTITION BY source ORDER BY run_at DESC)=1
+        ORDER BY source""").df()
